@@ -6,7 +6,7 @@ const delimeter = '\n';
 const serialize = async (obj) => JSON.stringify(obj) + delimeter;
 const deserialize = async (str) => JSON.parse(str);
 
-const write = async (path, ...objects) => {
+const append = async (path, ...objects) => {
     const fileHandle = await __fs.open(path, 'a');
     if (fileHandle === undefined) throw new Error('Could not open the file!');
     try {
@@ -57,6 +57,6 @@ const readFromEnd = async function* (path, bufferSize = 1024) {
 }
 
 module.exports = {
-    write,
+    append,
     readFromEnd
 };
