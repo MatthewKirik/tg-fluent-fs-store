@@ -19,6 +19,10 @@ class FilesystemStore {
         await __fs.mkdir(dataPath, {recursive: true});
     }
 
+    _getPath(chatId) {
+        return __path.join(this.basePath, chatId);
+    }
+
     save(data) {
 
     }
