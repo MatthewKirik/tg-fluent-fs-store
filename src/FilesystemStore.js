@@ -80,8 +80,11 @@ class FilesystemStore {
         await _jsonl.append(this._getPath(chatId), ...msgs);
     }
 
-    getById(chatId, messageId) {
-
+    async getById(chatId, messageId) {
+        for await (let msg of _jsonl.readFromEnd(this._getPath(chatId))) {
+            if (msg.id === messageId) return msg;
+        }
+        return null;
     }
 
     async findLast(chatId, filter, limit) {
