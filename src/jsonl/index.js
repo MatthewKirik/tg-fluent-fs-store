@@ -1,4 +1,6 @@
-const __fs = require('fs').promises;
+const __fsBase = require('fs');
+const __fs = __fsBase.promises;
+const __readline = require('readline');
 const __path = require('path');
 
 const delimeter = '\n';
@@ -56,7 +58,28 @@ const readFromEnd = async function* (path, bufferSize = 1024) {
     }
 }
 
+
+const filterLines = async (path, predicate) => {
+    const fileStream = await __fsBase.createReadStream(path);
+    const tempPath = __path.join(__path.dirname(path), __path.basename(path) + '.sav');
+    const tempFile = await __fs.open(tempPath, 'a');
+
+    const readline = __readline.createInterface({
+      input: fileStream,
+      crlfDelay: Infinity
+    });
+  
+    for await (const line of readline) {
+        const obj = await deserialize(line);
+        if(predicate(obj)) await tempFile.write(line);
+    }
+    tempFile.close();
+    await __fs.unlink(path);
+    await __fs.rename(tempPath, path);
+}
+
 module.exports = {
     append,
-    readFromEnd
+    readFromEnd,
+    filterLines
 };

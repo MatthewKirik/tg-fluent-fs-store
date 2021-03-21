@@ -105,12 +105,12 @@ class FilesystemStore {
 
     }
 
-    deleteById(chatId, messageId) {
-
+    async deleteById(chatId, messageId) {
+        await _jsonl.filterLines(this._getPath(chatId), msg => msg.id !== messageId);
     }
 
-    deleteLast(chatId, filter, limit) {
-
+    async delete(chatId, filter) {
+        await _jsonl.filterLines(this._getPath(chatId), msg => !this._matchesFilter(filter, msg));
     }
 }
 
