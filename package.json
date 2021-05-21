@@ -16,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/MatthewKirik/tg-fluent-fs-store/issues"
   },
-  "homepage": "https://github.com/MatthewKirik/tg-fluent-fs-store#readme"
+  "homepage": "https://github.com/MatthewKirik/tg-fluent-fs-store#readme",
+  "devDependencies": {
+    "prettier": "2.3.0"
+  }
 }
