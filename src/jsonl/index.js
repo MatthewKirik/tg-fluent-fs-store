@@ -113,4 +113,5 @@ module.exports = {
     append,
     readFromEnd,
     filterLines,
+    mapLines,
 };
