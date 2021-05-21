@@ -21,6 +21,12 @@ const _jsonl = require('./jsonl');
  * @see https://core.telegram.org/bots/api#message
  */
 
+const filterPredicates = {
+    all: (collection, lambda) => collection.every(lambda),
+    any: (collection, lambda) => collection.some(lambda),
+    except: (collection, lambda) => !collection.some(lambda),
+};
+
 class FilesystemStore {
     constructor(basePath, tags) {
         return (async () => {
@@ -62,16 +68,11 @@ class FilesystemStore {
         if (!filter.mode) filter.mode = 'all';
         if (!!filter.tags) {
             if (!!filter.tags_mode) filter.tags_mode = filter.mode;
-            if (filter.tags_mode == 'all')
-                matches.push(filter.tags.every((t) => msg.tags.includes(t)));
-            else if (filter.tags_mode == 'any')
-                matches.push(filter.tags.some((t) => msg.tags.includes(t)));
-            else if (filter.tags_mode == 'except')
-                matches.push(!filter.tags.some((t) => msg.tags.includes(t)));
+            filterPredicates[filter.tags_mode](filter.tags, (t) =>
+                msg.tags.includes(t)
+            );
         }
-        if (filter.mode == 'all') return matches.every((m) => m);
-        else if (filter.mode == 'any') return matches.some((m) => m);
-        else if (filter.mode == 'except') return !matches.some((m) => m);
+        filterPredicates[filter.mode](filter.tags, (t) => t);
     }
 
     async save(chatId, ...msgs) {
