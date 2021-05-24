@@ -100,13 +100,17 @@ const filterLines = async (path, predicate) => {
         crlfDelay: Infinity,
     });
 
+    const filteredOut = [];
     for await (const line of readline) {
         const obj = await deserialize(line);
         if (predicate(obj)) await tempFile.write(line);
+        else filteredOut.push(obj);
     }
+
     tempFile.close();
     await __fs.unlink(path);
     await __fs.rename(tempPath, path);
+    return filteredOut;
 };
 
 module.exports = {

@@ -108,17 +108,29 @@ class FilesystemStore {
     }
 
     async deleteById(chatId, messageId) {
-        await _jsonl.filterLines(
+        const deletedMsgs = await _jsonl.filterLines(
             this._getPath(chatId),
             (msg) => msg.id !== messageId
         );
+        if (deletedMsgs.length === 0)
+            throw new Error('Message with this id was not found in the chat');
     }
 
     async delete(chatId, filter) {
-        await _jsonl.filterLines(
+        return await _jsonl.filterLines(
             this._getPath(chatId),
             (msg) => !this._matchesFilter(filter, msg)
         );
+    }
+
+    async deleteLast(chatId, filter, limit) {
+        const msgsToDelete = this.findLast(chatId, filter, limit);
+        const deletedMsgs = await _jsonl.filterLines(
+            this._getPath(chatId),
+            (msg) => !msgsToDelete.some((msgToDelete) => msgToDelete.id === msg)
+        );
+        if (deletedMsgs.length > 0) return deletedMsgs[0].id;
+        else return undefined;
     }
 }
 
