@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const { join } = require('path');
 const jsonl = require('./jsonl');
+const { writeStrings, readStrings } = require('./strings');
 
 /**
  * @typedef {Object} TelegramMessagesFilter
@@ -28,10 +29,13 @@ const filterPredicates = {
 };
 
 class FilesystemStore {
-    constructor(basePath, tags) {
+    constructor(basePath, params = {}) {
         return (async () => {
+            if (typeof params === 'object') {
+                params.historyLimit ||= 10;
+                this.params = params;
+            }
             await this.setDirectory(basePath);
-
             return this;
         })();
     }
@@ -40,12 +44,19 @@ class FilesystemStore {
         if (typeof basePath === 'string') this.basePath = basePath;
         else throw new Error('Base path should be a string.');
 
-        let dataPath = join(this.basePath, 'data');
+        this.dataPath = join(this.basePath, 'data');
         await fs.mkdir(dataPath, { recursive: true });
+
+        this.historyPath = join(this.basePath, 'history');
+        await fs.mkdir(historyPath, { recursive: true });
     }
 
-    _getPath(chatId) {
-        return join(this.basePath, chatId.toString());
+    _getMessagesPath(chatId) {
+        return join(this.dataPath, chatId.toString());
+    }
+
+    _getHistoryPath(chatId) {
+        return join(this.historyPath, chatId.toString());
     }
 
     /**
@@ -76,11 +87,13 @@ class FilesystemStore {
     }
 
     async save(chatId, ...msgs) {
-        await jsonl.append(this._getPath(chatId), ...msgs);
+        await jsonl.append(this._getMessagesPath(chatId), ...msgs);
     }
 
     async getById(chatId, messageId) {
-        for await (let msg of jsonl.readFromEnd(this._getPath(chatId))) {
+        for await (let msg of jsonl.readFromEnd(
+            this._getMessagesPath(chatId)
+        )) {
             if (msg.id === messageId) return msg;
         }
         return null;
@@ -94,7 +107,9 @@ class FilesystemStore {
                 );
         }
         const matches = [];
-        for await (let msg of jsonl.readFromEnd(this._getPath(chatId))) {
+        for await (let msg of jsonl.readFromEnd(
+            this._getMessagesPath(chatId)
+        )) {
             if (this._matchesFilter(filter, msg)) matches.push(msg);
             if (limit != undefined && matches.length >= limit) break;
         }
@@ -102,14 +117,14 @@ class FilesystemStore {
     }
 
     async update(chatId, messageId, data) {
-        await jsonl.mapLines(this._getPath(chatId), (msg) =>
+        await jsonl.mapLines(this._getMessagesPath(chatId), (msg) =>
             msg.id === messageId ? { ...msg, ...data } : msg
         );
     }
 
     async deleteById(chatId, messageId) {
         const deletedMsgs = await jsonl.filterLines(
-            this._getPath(chatId),
+            this._getMessagesPath(chatId),
             (msg) => msg.id !== messageId
         );
         if (deletedMsgs.length === 0)
@@ -118,7 +133,7 @@ class FilesystemStore {
 
     async delete(chatId, filter) {
         return await jsonl.filterLines(
-            this._getPath(chatId),
+            this._getMessagesPath(chatId),
             (msg) => !this._matchesFilter(filter, msg)
         );
     }
@@ -126,11 +141,39 @@ class FilesystemStore {
     async deleteLast(chatId, filter, limit) {
         const msgsToDelete = this.findLast(chatId, filter, limit);
         const deletedMsgs = await jsonl.filterLines(
-            this._getPath(chatId),
+            this._getMessagesPath(chatId),
             (msg) => !msgsToDelete.some((msgToDelete) => msgToDelete.id === msg)
         );
         if (deletedMsgs.length > 0) return deletedMsgs[0].id;
         else return undefined;
+    }
+
+    async pushHistory(chatId, ...entities) {
+        const path = this._getHistoryPath(chatId);
+        const strings = await readStrings(path);
+        const overflow =
+            this.params.historyLimit - (strings.length + entities.length);
+        if (overflow > 0) {
+            strings = strings.splice(overflow);
+        }
+        strings.push(entities);
+        await writeStrings(path, strings);
+    }
+
+    async popHistory(chatId, limit = undefined) {
+        const path = this._getHistoryPath(chatId);
+        let strings = await readStrings(path);
+        const popped = strings.reverse().splice(0, limit);
+        strings = strings.splice(-limit);
+        await writeStrings(path, strings);
+        return popped;
+    }
+
+    async readHistory(chatId, limit) {
+        const path = this._getHistoryPath(chatId);
+        const strings = await readStrings(path);
+        const history = strings.reverse().splice(0, limit);
+        return history;
     }
 }
 
