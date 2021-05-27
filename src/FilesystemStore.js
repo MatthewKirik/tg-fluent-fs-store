@@ -144,8 +144,7 @@ class FilesystemStore {
             this._getMessagesPath(chatId),
             (msg) => !msgsToDelete.some((msgToDelete) => msgToDelete.id === msg)
         );
-        if (deletedMsgs.length > 0) return deletedMsgs[0].id;
-        else return undefined;
+        return deletedMsgs;
     }
 
     async pushHistory(chatId, ...entities) {
