@@ -1,6 +1,6 @@
-const __fs = require('fs').promises;
-const __path = require('path');
-const _jsonl = require('./jsonl');
+const fs = require('fs').promises;
+const { join } = require('path');
+const jsonl = require('./jsonl');
 
 /**
  * @typedef {Object} TelegramMessagesFilter
@@ -40,12 +40,12 @@ class FilesystemStore {
         if (typeof basePath === 'string') this.basePath = basePath;
         else throw new Error('Base path should be a string.');
 
-        let dataPath = __path.join(this.basePath, 'data');
-        await __fs.mkdir(dataPath, { recursive: true });
+        let dataPath = join(this.basePath, 'data');
+        await fs.mkdir(dataPath, { recursive: true });
     }
 
     _getPath(chatId) {
-        return __path.join(this.basePath, chatId.toString());
+        return join(this.basePath, chatId.toString());
     }
 
     /**
@@ -76,11 +76,11 @@ class FilesystemStore {
     }
 
     async save(chatId, ...msgs) {
-        await _jsonl.append(this._getPath(chatId), ...msgs);
+        await jsonl.append(this._getPath(chatId), ...msgs);
     }
 
     async getById(chatId, messageId) {
-        for await (let msg of _jsonl.readFromEnd(this._getPath(chatId))) {
+        for await (let msg of jsonl.readFromEnd(this._getPath(chatId))) {
             if (msg.id === messageId) return msg;
         }
         return null;
@@ -94,7 +94,7 @@ class FilesystemStore {
                 );
         }
         const matches = [];
-        for await (let msg of _jsonl.readFromEnd(this._getPath(chatId))) {
+        for await (let msg of jsonl.readFromEnd(this._getPath(chatId))) {
             if (this._matchesFilter(filter, msg)) matches.push(msg);
             if (limit != undefined && matches.length >= limit) break;
         }
@@ -102,13 +102,13 @@ class FilesystemStore {
     }
 
     async update(chatId, messageId, data) {
-        await _jsonl.mapLines(this._getPath(chatId), (msg) =>
+        await jsonl.mapLines(this._getPath(chatId), (msg) =>
             msg.id === messageId ? { ...msg, ...data } : msg
         );
     }
 
     async deleteById(chatId, messageId) {
-        const deletedMsgs = await _jsonl.filterLines(
+        const deletedMsgs = await jsonl.filterLines(
             this._getPath(chatId),
             (msg) => msg.id !== messageId
         );
@@ -117,7 +117,7 @@ class FilesystemStore {
     }
 
     async delete(chatId, filter) {
-        return await _jsonl.filterLines(
+        return await jsonl.filterLines(
             this._getPath(chatId),
             (msg) => !this._matchesFilter(filter, msg)
         );
@@ -125,7 +125,7 @@ class FilesystemStore {
 
     async deleteLast(chatId, filter, limit) {
         const msgsToDelete = this.findLast(chatId, filter, limit);
-        const deletedMsgs = await _jsonl.filterLines(
+        const deletedMsgs = await jsonl.filterLines(
             this._getPath(chatId),
             (msg) => !msgsToDelete.some((msgToDelete) => msgToDelete.id === msg)
         );

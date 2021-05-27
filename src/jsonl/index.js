@@ -1,7 +1,7 @@
-const __fsBase = require('fs');
-const __fs = __fsBase.promises;
-const __readline = require('readline');
-const __path = require('path');
+const fsBase = require('fs');
+const fs = fsBase.promises;
+const readline = require('readline');
+const { dirname, basename, join } = require('path');
 
 const delimeter = '\n';
 
@@ -9,7 +9,7 @@ const serialize = async (obj) => JSON.stringify(obj) + delimeter;
 const deserialize = async (str) => JSON.parse(str);
 
 const append = async (path, ...objects) => {
-    const fileHandle = await __fs.open(path, 'a');
+    const fileHandle = await fs.open(path, 'a');
     if (fileHandle === undefined) throw new Error('Could not open the file!');
     try {
         for (const obj of objects) {
@@ -22,7 +22,7 @@ const append = async (path, ...objects) => {
 };
 
 const readFromEnd = async function* (path, bufferSize = 1024) {
-    const fileHandle = await __fs.open(path, 'r');
+    const fileHandle = await fs.open(path, 'r');
 
     try {
         if (fileHandle === undefined)
@@ -66,14 +66,11 @@ const mapLines = async (path, map) => {
     if (typeof func !== 'function')
         throw new TypeError('Map callback should be of type function.');
 
-    const fileStream = await __fsBase.createReadStream(path);
-    const tempPath = __path.join(
-        __path.dirname(path),
-        __path.basename(path) + '.sav'
-    );
-    const tempFile = await __fs.open(tempPath, 'a');
+    const fileStream = await fsBase.createReadStream(path);
+    const tempPath = join(dirname(path), basename(path) + '.sav');
+    const tempFile = await fs.open(tempPath, 'a');
 
-    const readline = __readline.createInterface({
+    const readline = readline.createInterface({
         input: fileStream,
         crlfDelay: Infinity,
     });
@@ -83,19 +80,16 @@ const mapLines = async (path, map) => {
         await tempFile.write(map(obj));
     }
     tempFile.close();
-    await __fs.unlink(path);
-    await __fs.rename(tempPath, path);
+    await fs.unlink(path);
+    await fs.rename(tempPath, path);
 };
 
 const filterLines = async (path, predicate) => {
-    const fileStream = await __fsBase.createReadStream(path);
-    const tempPath = __path.join(
-        __path.dirname(path),
-        __path.basename(path) + '.sav'
-    );
-    const tempFile = await __fs.open(tempPath, 'a');
+    const fileStream = await fsBase.createReadStream(path);
+    const tempPath = join(dirname(path), basename(path) + '.sav');
+    const tempFile = await fs.open(tempPath, 'a');
 
-    const readline = __readline.createInterface({
+    const readline = readline.createInterface({
         input: fileStream,
         crlfDelay: Infinity,
     });
@@ -108,8 +102,8 @@ const filterLines = async (path, predicate) => {
     }
 
     tempFile.close();
-    await __fs.unlink(path);
-    await __fs.rename(tempPath, path);
+    await fs.unlink(path);
+    await fs.rename(tempPath, path);
     return filteredOut;
 };
 
