@@ -1,3 +1,5 @@
+'use strict';
+
 const fs = require('fs').promises;
 const { join } = require('path');
 const jsonl = require('./jsonl');
@@ -32,7 +34,7 @@ class FilesystemStore {
     constructor(basePath, params = {}) {
         return (async () => {
             if (typeof params === 'object') {
-                params.historyLimit ||= 10;
+                params.historyLimit = params.historyLimit || 10;
                 this.params = params;
             }
             await this.setDirectory(basePath);
@@ -45,10 +47,10 @@ class FilesystemStore {
         else throw new Error('Base path should be a string.');
 
         this.dataPath = join(this.basePath, 'data');
-        await fs.mkdir(dataPath, { recursive: true });
+        await fs.mkdir(this.dataPath, { recursive: true });
 
         this.historyPath = join(this.basePath, 'history');
-        await fs.mkdir(historyPath, { recursive: true });
+        await fs.mkdir(this.historyPath, { recursive: true });
     }
 
     _getMessagesPath(chatId) {
@@ -77,8 +79,8 @@ class FilesystemStore {
             }
         }
         if (!filter.mode) filter.mode = 'all';
-        if (!!filter.tags) {
-            if (!!filter.tags_mode) filter.tags_mode = filter.mode;
+        if (filter.tags) {
+            if (filter.tags_mode) filter.tags_mode = filter.mode;
             filterPredicates[filter.tags_mode](filter.tags, (t) =>
                 msg.tags.includes(t)
             );
@@ -91,7 +93,7 @@ class FilesystemStore {
     }
 
     async getById(chatId, messageId) {
-        for await (let msg of jsonl.readFromEnd(
+        for await (const msg of jsonl.readFromEnd(
             this._getMessagesPath(chatId)
         )) {
             if (msg.id === messageId) return msg;
@@ -107,11 +109,11 @@ class FilesystemStore {
                 );
         }
         const matches = [];
-        for await (let msg of jsonl.readFromEnd(
+        for await (const msg of jsonl.readFromEnd(
             this._getMessagesPath(chatId)
         )) {
             if (this._matchesFilter(filter, msg)) matches.push(msg);
-            if (limit != undefined && matches.length >= limit) break;
+            if (limit !== undefined && matches.length >= limit) break;
         }
         return matches;
     }
@@ -149,7 +151,7 @@ class FilesystemStore {
 
     async pushHistory(chatId, ...entities) {
         const path = this._getHistoryPath(chatId);
-        const strings = await readStrings(path);
+        let strings = await readStrings(path);
         const overflow =
             this.params.historyLimit - (strings.length + entities.length);
         if (overflow > 0) {

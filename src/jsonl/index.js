@@ -1,3 +1,5 @@
+'use strict';
+
 const fsBase = require('fs');
 const fs = fsBase.promises;
 const readline = require('readline');
@@ -13,7 +15,7 @@ const append = async (path, ...objects) => {
     if (fileHandle === undefined) throw new Error('Could not open the file!');
     try {
         for (const obj of objects) {
-            string = await serialize(obj);
+            const string = await serialize(obj);
             await fileHandle.write(string);
         }
     } finally {
@@ -34,7 +36,7 @@ const readFromEnd = async function* (path, bufferSize = 1024) {
         let pos = stats.size;
         let length;
         do {
-            pos = pos - bufferSize;
+            pos -= bufferSize;
             length = pos < 0 ? bufferSize + pos : bufferSize;
             const readingResult = await fileHandle.read(
                 buffer,
@@ -70,12 +72,12 @@ const mapLines = async (path, map) => {
     const tempPath = join(dirname(path), basename(path) + '.sav');
     const tempFile = await fs.open(tempPath, 'a');
 
-    const readline = readline.createInterface({
+    const rl = readline.createInterface({
         input: fileStream,
         crlfDelay: Infinity,
     });
 
-    for await (const line of readline) {
+    for await (const line of rl) {
         const obj = await deserialize(line);
         await tempFile.write(map(obj));
     }
@@ -89,13 +91,13 @@ const filterLines = async (path, predicate) => {
     const tempPath = join(dirname(path), basename(path) + '.sav');
     const tempFile = await fs.open(tempPath, 'a');
 
-    const readline = readline.createInterface({
+    const rl = readline.createInterface({
         input: fileStream,
         crlfDelay: Infinity,
     });
 
     const filteredOut = [];
-    for await (const line of readline) {
+    for await (const line of rl) {
         const obj = await deserialize(line);
         if (predicate(obj)) await tempFile.write(line);
         else filteredOut.push(obj);
