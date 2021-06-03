@@ -2,8 +2,8 @@
 
 const fs = require('fs').promises;
 const { join } = require('path');
-const jsonl = require('./jsonl');
-const { writeStrings, readStrings } = require('./strings');
+const jsonl = require('./jsonl.js');
+const { writeStrings, readStrings } = require('./strings.js');
 
 /**
  * @typedef {Object} TelegramMessagesFilter
@@ -30,16 +30,20 @@ const filterPredicates = {
     except: (collection, lambda) => !collection.some(lambda),
 };
 
+const DEFAULTS = {
+    HISTORY_LIMIT: 10,
+};
 class FilesystemStore {
     constructor(basePath, params = {}) {
-        return (async () => {
-            if (typeof params === 'object') {
-                params.historyLimit = params.historyLimit || 10;
-                this.params = params;
-            }
-            await this.setDirectory(basePath);
-            return this;
-        })();
+        if (typeof params === 'object') {
+            params.historyLimit = params.historyLimit || DEFAULTS.HISTORY_LIMIT;
+            this.params = params;
+        }
+        return this.initialize(basePath);
+    }
+
+    async initialize(basePath) {
+        await this.setDirectory(basePath);
     }
 
     async setDirectory(basePath) {
@@ -69,15 +73,15 @@ class FilesystemStore {
      */
     _matchesFilter(filter, msg) {
         const matches = [];
-        for (const key in filter) {
+        for (const key of Object.keys(filter)) {
             if (key === 'tags') continue;
-            if (
-                Object.hasOwnProperty.call(filter, key) &&
-                Object.hasOwnProperty.call(msg, key)
-            ) {
+            const isKeyInMessage = Object.hasOwnProperty.call(msg, key);
+            const isKeyInFilter = Object.hasOwnProperty.call(filter, key);
+            if (isKeyInMessage && isKeyInFilter) {
                 matches.push(filter[key] === msg[key]);
             }
         }
+
         if (!filter.mode) filter.mode = 'all';
         if (filter.tags) {
             if (filter.tags_mode) filter.tags_mode = filter.mode;
@@ -93,20 +97,22 @@ class FilesystemStore {
     }
 
     async getById(chatId, messageId) {
-        for await (const msg of jsonl.readFromEnd(
-            this._getMessagesPath(chatId)
-        )) {
+        const msgPath = this._getMessagesPath(chatId);
+        const iterator = jsonl.readFromEnd(msgPath);
+        for await (const msg of iterator) {
             if (msg.id === messageId) return msg;
         }
         return null;
     }
 
     async findLast(chatId, filter, limit) {
-        if (typeof limit !== 'undefined') {
-            if (typeof limit !== 'number' || limit <= 0)
-                throw new Error(
-                    'Limit should be positive number. Pass "undefined" for no limit.'
-                );
+        const limitType = typeof limit;
+        const isLimitOfWrongType =
+            limitType !== 'undefined' && limitType !== 'number';
+        if (isLimitOfWrongType || limit <= 0) {
+            throw new Error(
+                'Limit should be positive number. Pass "undefined" for no limit.'
+            );
         }
         const matches = [];
         for await (const msg of jsonl.readFromEnd(
@@ -129,8 +135,9 @@ class FilesystemStore {
             this._getMessagesPath(chatId),
             (msg) => msg.id !== messageId
         );
-        if (deletedMsgs.length === 0)
+        if (deletedMsgs.length === 0) {
             throw new Error('Message with this id was not found in the chat');
+        }
     }
 
     async delete(chatId, filter) {

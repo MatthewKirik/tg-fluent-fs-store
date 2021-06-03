@@ -5,30 +5,42 @@ const fs = fsBase.promises;
 const readline = require('readline');
 const { dirname, basename, join } = require('path');
 
+const ERRORS = {
+    ERR_CANT_OPEN_FILE: 'Could not open the file!',
+    ERR_CALLBACK_FUNC_EXPECTED: 'Callback should be of type function.',
+};
+
 const delimeter = '\n';
 
 const serialize = async (obj) => JSON.stringify(obj) + delimeter;
 const deserialize = async (str) => JSON.parse(str);
 
 const append = async (path, ...objects) => {
-    const fileHandle = await fs.open(path, 'a');
-    if (fileHandle === undefined) throw new Error('Could not open the file!');
+    let fileHandle = null;
+    try {
+        fileHandle = await fs.open(path, 'a');
+    } catch (err) {
+        throw Error(ERRORS.ERR_CANT_OPEN_FILE);
+    }
     try {
         for (const obj of objects) {
             const string = await serialize(obj);
             await fileHandle.write(string);
         }
-    } finally {
-        await fileHandle.close();
-    }
+    } catch {}
+    if (fileHandle) await fileHandle.close();
 };
 
 const readFromEnd = async function* (path, bufferSize = 1024) {
-    const fileHandle = await fs.open(path, 'r');
+    let fileHandle = null;
+    try {
+        fileHandle = await fs.open(path, 'r');
+    } catch (err) {
+        throw Error(ERRORS.ERR_CANT_OPEN_FILE);
+    }
 
     try {
-        if (fileHandle === undefined)
-            throw new Error('Could not open the file!');
+        if (fileHandle === undefined) throw Error(ERRORS.ERR_CANT_OPEN_FILE);
         const stats = await fileHandle.stat();
 
         const buffer = new Buffer.alloc(bufferSize);
@@ -49,24 +61,20 @@ const readFromEnd = async function* (path, bufferSize = 1024) {
                 buffer.toString('utf-8', 0, readingResult.bytesRead) + rest;
             const strings = string.split(delimeter);
 
-            if (pos > 0) rest = strings.shift();
-            else rest = '';
+            rest = pos > 0 ? strings.shift() : '';
 
             for (let i = strings.length; i >= 0; i--) {
-                try {
-                    const obj = await deserialize(strings[i]);
-                    yield obj;
-                } catch {}
+                const obj = await deserialize(strings[i]);
+                yield obj;
             }
         } while (pos > 0);
-    } finally {
-        await fileHandle.close();
-    }
+    } catch {}
+    if (fileHandle) await fileHandle.close();
 };
 
 const mapLines = async (path, map) => {
     if (typeof func !== 'function')
-        throw new TypeError('Map callback should be of type function.');
+        throw TypeError(ERRORS.ERR_CALLBACK_FUNC_EXPECTED);
 
     const fileStream = await fsBase.createReadStream(path);
     const tempPath = join(dirname(path), basename(path) + '.sav');
